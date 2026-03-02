@@ -4,41 +4,48 @@ from bs4 import BeautifulSoup
 from urllib.parse import unquote, urljoin
 from tqdm import tqdm
 import shutil
+import time
 
-# الروابط المستهدفة
-URLS = {
-    "Games": "https://myrient.erista.me/files/Redump/Microsoft%20-%20Xbox%20360/",
-    "DLC_Digital": "https://myrient.erista.me/files/No-Intro/Microsoft%20-%20Xbox%20360%20%28Digital%29/"
-}
+BASE_URL = "https://myrient.erista.me/files/"
+OUTPUT_DIR = "Myrient_Full_Archive"
 
-def process_section(url, target_path, label):
-    print(f"\n>>> فحص القسم: {label}")
+def get_links(url):
     try:
-        response = requests.get(url, timeout=30)
-        response.raise_for_status()
-        soup = BeautifulSoup(response.text, 'html.parser')
-        all_links = [a for a in soup.find_all('a') if a.get('href') and not a.get('href').startswith('?') and "Parent Directory" not in a.text]
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        response = requests.get(url, headers=headers, timeout=20)
+        return BeautifulSoup(response.text, 'html.parser')
+    except:
+        return None
+
+def crawl(current_url, current_path):
+    soup = get_links(current_url)
+    if not soup: return
+
+    links = soup.find_all('a')
+    for link in links:
+        href = link.get('href')
+        if not href or href.startswith('?') or href in ['../', '/']:
+            continue
         
-        with tqdm(total=len(all_links), desc=f"أرشفة {label}", unit="file") as pbar:
-            for link in all_links:
-                href = link.get('href')
-                full_name = unquote(href).strip('/')
-                game_name = "".join([c if c not in '<>:"/\\|?*' else '-' for c in full_name.rsplit('.', 1)[0]])
-                game_dir = os.path.join(target_path, game_name)
-                os.makedirs(game_dir, exist_ok=True)
-                with open(os.path.join(game_dir, "link.txt"), "w", encoding="utf-8") as f:
-                    f.write(urljoin(url, href))
-                pbar.update(1)
-    except Exception as e:
-        print(f"❌ خطأ في {label}: {e}")
+        name = unquote(href).strip('/')
+        safe_name = "".join([c if c not in '<>:"/\\|?*' else '-' for c in name])
+        full_path = os.path.join(current_path, safe_name)
+        new_url = urljoin(current_url, href)
+
+        if href.endswith('/'):  # إذا كان مجلد
+            os.makedirs(full_path, exist_ok=True)
+            crawl(new_url, full_path) # ادخل داخل المجلد
+        else:  # إذا كان ملف
+            file_dir = full_path.rsplit('.', 1)[0]
+            os.makedirs(file_dir, exist_ok=True)
+            with open(os.path.join(file_dir, "download_link.txt"), "w") as f:
+                f.write(new_url)
 
 if __name__ == "__main__":
-    base_folder = "Xbox_Archive"
-    os.makedirs(base_folder, exist_ok=True)
-    for label, url in URLS.items():
-        path = os.path.join(base_folder, label)
-        os.makedirs(path, exist_ok=True)
-        process_section(url, path, label)
-    print("\n📦 جاري ضغط الملفات...")
-    shutil.make_archive("Xbox_Full_Backup", 'zip', base_folder)
-    print("✅ تم الانتهاء!")
+    print("🚀 بدء أرشفة موقع Myrient بالكامل... قد يستغرق هذا وقتاً طويلاً جداً!")
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    crawl(BASE_URL, OUTPUT_DIR)
+    
+    print("📦 جاري ضغط الأرشيف الكامل...")
+    shutil.make_archive("Myrient_Complete_Backup", 'zip', OUTPUT_DIR)
+    print("✅ تم الانتهاء من أرشفة كل ما تم الوصول إليه!")
