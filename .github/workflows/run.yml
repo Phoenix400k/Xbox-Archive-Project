@@ -1,10 +1,13 @@
-name: Archive Myrient Links
+name: Archive Myrient Full Site
 on: 
   workflow_dispatch:
 
 jobs:
   archive_job:
     runs-on: ubuntu-latest
+    # أعطيناه أقصى مدة مسموحة (6 ساعات) لأن الموقع ضخم جداً
+    timeout-minutes: 360 
+
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -17,12 +20,15 @@ jobs:
       - name: Install Libs
         run: pip install requests beautifulsoup4 tqdm
 
-      - name: Start Scraping
+      - name: Start Full Scraping
+        # سيقوم بتشغيل كود الزحف الشامل للموقع
         run: python scraper.py
 
-      - name: Upload Final Backup
+      - name: Upload Complete Backup
         uses: actions/upload-artifact@v4
         with:
-          name: Xbox-Links-Archive
-          path: Xbox_Full_Backup.zip
+          # هذا هو الاسم الذي ستجده عند التحميل غداً
+          name: Myrient-Full-Archive
+          # يجب أن يطابق اسم ملف الـ ZIP الذي ينشئه كود البايثون
+          path: Myrient_Complete_Backup.zip
           retention-days: 5
